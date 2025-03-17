@@ -1,0 +1,107 @@
+
+
+/* Sidebar */
+#sidebar {
+    width: 250px;
+    height: calc(100vh - 60px); /* Adjust based on header height */
+    position: fixed;
+    top: 60px; /* Push below the header */
+    left: 0;
+    background: #fc7b46 !important;
+    color: rgb(255, 255, 255) !important;
+    padding: 20px;
+    transition: transform 0.3s ease-in-out, width 0.3s ease-in-out;
+}
+
+/* Fully Hide Sidebar when Collapsed */
+.sidebar.collapsed {
+    transform: translateX(-100%);
+    width: 0;
+}
+/* Sidebar Menu */
+.sidebar-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-menu li {
+    margin: 10px 0;
+}
+
+.sidebar-menu a {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    transition: background 0.3s;
+}
+
+.sidebar-menu a:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Sidebar Icons */
+.icon {
+    margin-right: 10px;
+    font-size: 18px;
+}
+
+/* Logout Style */
+.logout {
+    color: rgb(0, 0, 0) !important;
+}
+
+/* Main Content */
+#main-content {
+    margin-left: 250px;
+    transition: margin-left 0.3s ease-in-out;
+    padding: 20px;
+}
+
+/* Move Main Content when Sidebar is Collapsed */
+.sidebar.collapsed + #main-content {
+    margin-left: 0;
+}
+
+/* Sidebar Toggle Button */
+.sidebar-toggle {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 10px;
+    transition: transform 0.3s ease-in-out;
+}
+
+/* Rotate the toggle button when sidebar is collapsed */
+.sidebar.collapsed .sidebar-toggle {
+    transform: rotate(180deg);
+}
+
+/* Ensure Toggle Button is Positioned Correctly */
+.sidebar-toggle-container {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 1050; /* Ensure it's above other elements */
+}
+
+/* Responsive Behavior */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 250px;
+    }
+
+    .sidebar.collapsed {
+        transform: translateX(-100%);
+        width: 0;
+    }
+
+    #main-content {
+        margin-left: 0;
+    }
+}

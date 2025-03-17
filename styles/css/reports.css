@@ -1,0 +1,132 @@
+/* General Styles */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+}
+
+/* Main Content */
+.main-content {
+    padding: 20px;
+    margin-left: 250px; /* Adjust for sidebar */
+}
+
+/* Heading */
+h2 {
+    text-align: center;
+    color: #333;
+}
+
+/* Filters Section */
+.filters {
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.filters label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.filters input, 
+.filters select {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.filters button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.filters button:hover {
+    background-color: #0056b3;
+}
+
+/* Reports Table */
+.reports-table {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+    padding: 15px;
+}
+
+.reports-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.reports-table th, 
+.reports-table td {
+    padding: 12px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+.reports-table th {
+    background-color: #007bff;
+    color: white;
+}
+
+.reports-table tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+/* Export Buttons */
+.export-buttons {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.export-buttons button {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    margin: 5px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.export-buttons button:hover {
+    background-color: #218838;
+}
+
+.export-buttons .fa-file-pdf {
+    color: #e74c3c;
+}
+
+.export-buttons .fa-file-excel {
+    color: #2ecc71;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .filters {
+        flex-direction: column;
+    }
+
+    .filters label, 
+    .filters input, 
+    .filters select, 
+    .filters button {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+}
