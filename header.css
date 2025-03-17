@@ -1,0 +1,107 @@
+/* General Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+/* Custom Navbar */
+.custom-navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f0ede9 !important;
+    padding: 10px 20px;
+    color: #000000 !important;
+    position: fixed;
+    width: 100%;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    height: 60px; /* Set height for consistency */
+}
+
+/* Sidebar Toggle */
+.sidebar-toggle {
+    background: none;
+    border: none;
+    color: #fc7b46 !important;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 5px 10px;
+}
+
+/* Logo & Company Name */
+.navbar-brand {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: #000000 !important;
+}
+
+.logo {
+    height: 40px;
+    margin-right: 10px;
+}
+
+.company-name {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+/* User Dropdown */
+.user-dropdown {
+    position: relative;
+}
+
+.user-btn {
+    background: none;
+    border: none;
+    color: #000000;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.icon-user {
+    font-size: 20px;
+    margin-right: 5px;
+}
+
+/* Dropdown Menu */
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    background: #fff;
+    color: #000000;
+    border-radius: 5px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    width: 150px;
+    text-align: center;
+    padding: 10px 0;
+    top: 40px; /* Adjust position */
+}
+
+.dropdown-menu a {
+    display: block;
+    padding: 10px;
+    text-decoration: none;
+    color: #333;
+}
+
+.dropdown-menu a.logout {
+    color: red;
+}
+
+.dropdown-menu hr {
+    margin: 5px 0;
+    border: none;
+    height: 1px;
+    background: #ddd;
+}
+
+/* Show dropdown */
+.show {
+    display: block;
+}
