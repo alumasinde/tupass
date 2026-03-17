@@ -104,35 +104,52 @@ class LoginController extends Controller
 
 
 
-   /* |--------------------------------------------------------------------------
-    | Tenant Resolution
+    /* |--------------------------------------------------------------------------
+     | Tenant Resolution
+     private function resolveTenantId(): int
+ {
+     // Local development override
+     return 1;
+ }
+ */
     private function resolveTenantId(): int
-{
-    // Local development override
-    return 1;
-}
-*/
-   private function resolveTenantId(): int
-{
-    $host = $_SERVER['HTTP_HOST'] ?? '';
+    {
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        $parts = explode('.', $host);
 
-    $parts = explode('.', $host);
+        // Handle localhost & dev environments
+        if ($host === 'localhost' || count($parts) < 2) {
+            // Option 1: fallback tenant (dev only)
+            return $this->getDefaultTenantId();
+        }
 
-    if (count($parts) < 3) {
-        // e.g. localhost or no subdomain
-        throw new RuntimeException('Tenant subdomain missing.');
+        // Handle tenant.localhost OR tenant.domain.com
+        $subdomain = $parts[0];
+
+        // Prevent "www" being treated as tenant
+        if ($subdomain === 'www') {
+            throw new RuntimeException('Tenant subdomain missing.');
+        }
+
+        $tenantRepo = new TenantRepository();
+        $tenant = $tenantRepo->findActiveByCode($subdomain);
+
+        if (!$tenant) {
+            throw new RuntimeException('Invalid tenant.');
+        }
+
+        return (int) $tenant['id'];
     }
 
-    $subdomain = $parts[0];
+    private function getDefaultTenantId(): int
+    {
+        $tenantRepo = new TenantRepository();
+        $tenant = $tenantRepo->findActiveByCode('default'); // or 'tenant1'
 
-    $tenantRepo = new TenantRepository();
-    $tenant = $tenantRepo->findActiveByCode($subdomain);
+        if (!$tenant) {
+            throw new RuntimeException('Default tenant not configured.');
+        }
 
-    if (!$tenant) {
-        throw new RuntimeException('Invalid tenant.');
+        return (int) $tenant['id'];
     }
-
-    return (int) $tenant['id'];
-}
-    
 }
