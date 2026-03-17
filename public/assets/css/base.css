@@ -1,0 +1,109 @@
+/* PAGE HEADER */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.page-heading {
+    font-size: 1.5rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.page-actions {
+    display: flex;
+    gap: 10px;
+}
+
+
+/* TABLE CARD */
+.table-card {
+    background: var(--white);
+    padding: 0;
+    border-radius: var(--radius);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+
+
+/* TABLE */
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th,
+.table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.table th {
+    background: var(--light);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+
+/* TABLE ROW HOVER */
+.table tbody tr:hover {
+    background: #f9fafb;
+}
+
+
+/* ACTION BUTTONS */
+.table-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: nowrap;      /* prevent line wrapping */
+}
+
+.table-actions .btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    white-space: nowrap;    /* keep text on one line */
+}
+
+.table-actions form {
+    margin: 0;              /* remove form spacing */
+        display: inline-flex;
+
+}
+
+/* BADGE */
+.badge {
+    font-size: 0.85rem;
+    padding: 5px 8px;
+    border-radius: 6px;
+    background-color: var(--light);
+    color: var(--dark);
+}
+
+
+/* UTILITIES */
+.text-center {
+    text-align: center;
+}
+
+    .badge-approved {
+        background-color: var(--success-bg);
+        color: var(--success-color);
+    }
+
+    .badge-pending {
+        background-color: var(--warning-bg);
+        color: var(--warning-color);
+    }
+
+    .badge-rejected {
+        background-color: var(--danger-bg);
+        color: var(--danger-color);
+    }
