@@ -6,7 +6,6 @@ use App\Core\Auth;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Response;
-use App\Core\Tenant;
 use App\Modules\Settings\Services\GatepassTypeService;
 use RuntimeException;
 
