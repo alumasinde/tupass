@@ -2,25 +2,28 @@
 
 namespace App\Modules\Settings\Controllers;
 
+use App\Core\Auth;
+use App\Core\Controller;
 use App\Core\DB;
 use App\Core\Request;
-use App\Core\View;
+use App\Core\Response;
+use App\Core\Tenant;
 use PDO;
 
-class CompanySettingController
+class CompanySettingController extends Controller
 {
     private PDO $db;
     private int $tenantId;
 
     public function __construct()
     {
-        if (!isset($_SESSION['user']['tenant_id'])) {
-            header('Location: /login');
-            exit;
+        // FIX: Use Auth/Tenant helpers instead of reading $_SESSION directly
+        if (! Auth::check()) {
+            Response::redirect('/login');
         }
 
-        $this->tenantId = (int) $_SESSION['user']['tenant_id'];
-        $this->db = DB::connect();
+        $this->tenantId = Tenant::require();
+        $this->db       = DB::connect();
     }
 
     /**
@@ -29,7 +32,7 @@ class CompanySettingController
     public function index()
     {
         $stmt = $this->db->prepare("
-            SELECT name, email, code,phone, country
+            SELECT name, email, code, phone, country
             FROM tenants
             WHERE id = :id
             LIMIT 1
@@ -39,10 +42,10 @@ class CompanySettingController
 
         $company = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        return View::render('Settings::company', [
+        return $this->view('Settings::company', [
             'title'   => 'Company Settings',
-            'company' => $company ?: []
-        ], 'app');
+            'company' => $company ?: [],
+        ]);
     }
 
     /**
@@ -52,25 +55,25 @@ class CompanySettingController
     {
         $stmt = $this->db->prepare("
             UPDATE tenants
-            SET name    = :name,
-                email   = :email,
-                code    = :code,
-                phone   = :phone,
-                country = :country,
+            SET name       = :name,
+                email      = :email,
+                code       = :code,
+                phone      = :phone,
+                country    = :country,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = :id
         ");
 
         $stmt->execute([
             ':name'    => trim($request->input('company_name') ?? ''),
-            ':email'   => trim($request->input('email') ?? ''),
-            ':code'   => trim($request->input('code') ?? ''),
-            ':phone'   => trim($request->input('phone') ?? ''),
-            ':country' => trim($request->input('country') ?? ''),
+            ':email'   => trim($request->input('email')        ?? ''),
+            ':code'    => trim($request->input('code')         ?? ''),
+            ':phone'   => trim($request->input('phone')        ?? ''),
+            ':country' => trim($request->input('country')      ?? ''),
             ':id'      => $this->tenantId,
         ]);
 
-        header('Location: /settings/company');
-        exit;
+        // FIX: Use Response::redirect() instead of raw header() + exit
+        return $this->redirect('/settings/company');
     }
 }

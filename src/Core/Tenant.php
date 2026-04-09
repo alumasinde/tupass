@@ -17,4 +17,15 @@ class Tenant
 
         $_SESSION['user']['tenant_id'] = $tenantId;
     }
+
+    public static function require(): int
+    {
+        $tenantId = self::id();
+
+        if (!$tenantId) {
+            throw new \RuntimeException("Tenant ID is required but not set.");
+        }
+
+        return $tenantId;
+    }
 }

@@ -18,23 +18,38 @@ class LoginController extends Controller
         $this->auth = $auth ?? new AuthService();
     }
 
-    public function index()
-    {
-        if (!empty($_SESSION['user'])) {
-            header('Location: /dashboard');
-            exit;
-        }
-
-        return View::render(
-            'Auth::login',
-            [
-                'title' => 'Login',
-                'csrf_token' => $this->generateCsrfToken()
-            ],
-            'guest'
-        );
+ public function index()
+{
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
     }
 
+    if (!empty($_SESSION['user'])) {
+        header('Location: /dashboard');
+        exit;
+    }
+
+    try {
+        $tenantId = $this->resolveTenantId();
+        $tenant = $this->auth->getTenantContext($tenantId);
+
+    } catch (\Throwable $e) {
+        error_log($e->getMessage());
+        http_response_code(400);
+        exit('Invalid tenant');
+    }
+
+    return View::render(
+        'Auth::login',
+        [
+            'title'        => 'Login',
+            'csrf_token'   => $this->generateCsrfToken(),
+            'company_logo' => $tenant['tenant_logo'],
+            'tenant_name'  => $tenant['tenant_name'],
+        ],
+        'guest'
+    );
+}
     public function store(Request $request)
     {
         $this->assertValidCsrf($request->input('csrf_token'));
@@ -58,18 +73,31 @@ class LoginController extends Controller
         exit;
     }
 
-    private function errorResponse(string $message)
-    {
-        return View::render(
-            'Auth::login',
-            [
-                'title' => 'Login',
-                'error' => $message,
-                'csrf_token' => $this->generateCsrfToken()
-            ],
-            'guest'
-        );
+ private function errorResponse(string $message)
+{
+    try {
+        $tenantId = $this->resolveTenantId();
+        $tenant = $this->auth->getTenantContext($tenantId);
+
+    } catch (\Throwable $e) {
+        $tenant = [
+            'tenant_name'  => 'Company',
+            'tenant_logo'  => null,
+        ];
     }
+
+    return View::render(
+        'Auth::login',
+        [
+            'title'        => 'Login',
+            'error'        => $message,
+            'csrf_token'   => $this->generateCsrfToken(),
+            'company_logo' => $tenant['tenant_logo'],
+            'tenant_name'  => $tenant['tenant_name'],
+        ],
+        'guest'
+    );
+}
 
     private function isValidEmail(string $email): bool
     {

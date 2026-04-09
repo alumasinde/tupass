@@ -2,14 +2,24 @@
 
 namespace App\Modules\Settings\Controllers;
 
-use App\Core\View;
+use App\Core\Auth;
+use App\Core\Controller;
+use App\Core\Response;
 
-class SettingsController
+class SettingsController extends Controller
 {
+    public function __construct()
+    {
+        // FIX: Auth guard added — was missing
+        if (! Auth::check()) {
+            Response::redirect('/login');
+        }
+    }
+
     public function index()
     {
-        return View::render('Settings::dashboard', [
-            'title' => 'Settings'
-        ], 'app');
+        return $this->view('Settings::dashboard', [
+            'title' => 'Settings',
+        ]);
     }
 }

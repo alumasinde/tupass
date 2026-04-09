@@ -21,6 +21,8 @@ use App\Modules\Roles\Controllers\RoleController;
 use App\Modules\Roles\Controllers\UserRoleController;
 use App\Modules\Approval\Controllers\ApprovalController;
 use App\Modules\Settings\Controllers\WorkflowController;
+use App\Modules\Settings\Controllers\GatepassTypeController;
+
 
 $router = new Router();
 $auth = [AuthMiddleware::class];
@@ -62,7 +64,6 @@ $router->post('/approvals/{id}/approve', [ApprovalController::class, 'approve'],
 
 $router->get('/approvals/{id}/reject', [ApprovalController::class, 'reject'], $auth);
 $router->post('/approvals/{id}/reject', [ApprovalController::class, 'reject'], $auth);
-
 
 /*
 |--------------------------------------------------------------------------
@@ -134,6 +135,9 @@ $router->post('/settings/users', [UserManagementController::class, 'store'], $au
 $router->get('/settings/users/{id}/edit', [UserManagementController::class, 'edit'], $auth);
 
 $router->post('/settings/users/{id}', [UserManagementController::class, 'update'], $auth);
+
+$router->get('/settings/gatepass-types', [GatepassTypeController::class, 'index'], $auth);
+$router->post('/settings/gatepass-types/update', [GatepassTypeController::class, 'update'], $auth);
 
 // ==============================
 // WORKFLOW SETTINGS

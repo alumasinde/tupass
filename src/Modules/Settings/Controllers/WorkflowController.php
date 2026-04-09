@@ -2,11 +2,12 @@
 
 namespace App\Modules\Settings\Controllers;
 
+use App\Core\Auth;
 use App\Core\Controller;
-use App\Core\View;
+use App\Core\DB;
 use App\Core\Request;
 use App\Core\Response;
-use App\Core\DB;
+use App\Core\Tenant;
 use PDO;
 
 class WorkflowController extends Controller
@@ -15,51 +16,42 @@ class WorkflowController extends Controller
 
     public function __construct()
     {
+        // FIX: Use Auth helper instead of raw $_SESSION check
+        if (! Auth::check()) {
+            Response::redirect('/login');
+        }
+
         $this->db = DB::connect();
-        $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        // FIX: Removed redundant setAttribute() — PDO::ERRMODE_EXCEPTION is
+        // already set in config/database.php options. Calling it again here
+        // is harmless but misleading.
     }
 
     /* =========================================================
-     * AUTH
+     * HELPERS
      * ========================================================= */
-
-    private function user(): array
-    {
-        if (empty($_SESSION['user'])) {
-            header('Location: /login');
-            exit;
-        }
-
-        return $_SESSION['user'];
-    }
 
     private function tenantId(): int
     {
-        return (int) $this->user()['tenant_id'];
+        // FIX: Use Tenant::require() instead of reading $_SESSION manually
+        return Tenant::require();
     }
-
-    /* =========================================================
-     * WORKFLOW HELPERS
-     * ========================================================= */
 
     private function findOrFail(int $tenantId, int $id): array
     {
         $stmt = $this->db->prepare("
             SELECT *
             FROM workflows
-            WHERE id = :id
+            WHERE id        = :id
               AND tenant_id = :tenant_id
             LIMIT 1
         ");
 
-        $stmt->execute([
-            ':id'        => $id,
-            ':tenant_id' => $tenantId
-        ]);
+        $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
 
         $workflow = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$workflow) {
+        if (! $workflow) {
             Response::abort(404, 'Workflow not found.');
         }
 
@@ -80,7 +72,7 @@ class WorkflowController extends Controller
                        SELECT COUNT(*)
                        FROM workflow_steps ws
                        WHERE ws.workflow_id = w.id
-                         AND ws.tenant_id = w.tenant_id
+                         AND ws.tenant_id   = w.tenant_id
                    ) AS step_count
             FROM workflows w
             WHERE w.tenant_id = :tenant_id
@@ -89,10 +81,10 @@ class WorkflowController extends Controller
 
         $stmt->execute([':tenant_id' => $tenantId]);
 
-        return View::render('Settings::Workflows/index', [
+        return $this->view('Settings::Workflows/index', [
             'title'     => 'Workflows',
-            'workflows' => $stmt->fetchAll(PDO::FETCH_ASSOC)
-        ], 'app');
+            'workflows' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+        ]);
     }
 
     /* =========================================================
@@ -101,16 +93,18 @@ class WorkflowController extends Controller
 
     public function create()
     {
-        return View::render('Settings::Workflows/create', [
-            'title' => 'Create Workflow'
-        ], 'app');
+        return $this->view('Settings::Workflows/create', [
+            'title' => 'Create Workflow',
+        ]);
     }
 
     public function store(Request $request)
     {
-        $tenantId   = $this->tenantId();
-        $name       = trim($request->input('name'));
-        $description = trim($request->input('description', ''));
+        $tenantId    = $this->tenantId();
+        $name        = trim($request->input('name') ?? '');
+        // FIX: schema — workflows.description is varchar(250) NOT NULL
+        // Default to empty string to satisfy the NOT NULL constraint when omitted
+        $description = trim($request->input('description') ?? '');
 
         if ($name === '') {
             Response::abort(422, 'Workflow name is required.');
@@ -124,13 +118,12 @@ class WorkflowController extends Controller
         ");
 
         $stmt->execute([
-            ':tenant_id'  => $tenantId,
-            ':name'       => $name,
-            ':description'=> $description
+            ':tenant_id'   => $tenantId,
+            ':name'        => $name,
+            ':description' => $description,
         ]);
 
-        header('Location: /settings/workflows');
-        exit;
+        return $this->redirect('/settings/workflows');
     }
 
     /* =========================================================
@@ -141,19 +134,20 @@ class WorkflowController extends Controller
     {
         $workflow = $this->findOrFail($this->tenantId(), $id);
 
-        return View::render('Settings::Workflows/edit', [
+        return $this->view('Settings::Workflows/edit', [
             'title'    => 'Edit Workflow',
-            'workflow' => $workflow
-        ], 'app');
+            'workflow' => $workflow,
+        ]);
     }
 
     public function update(Request $request, int $id)
     {
-        $tenantId = $this->tenantId();
+        $tenantId    = $this->tenantId();
         $this->findOrFail($tenantId, $id);
 
-        $name        = trim($request->input('name'));
-        $description = trim($request->input('description', ''));
+        $name        = trim($request->input('name') ?? '');
+        // FIX: same NOT NULL fix as store()
+        $description = trim($request->input('description') ?? '');
         $isActive    = $request->input('is_active') ? 1 : 0;
 
         if ($name === '') {
@@ -165,20 +159,19 @@ class WorkflowController extends Controller
             SET name        = :name,
                 description = :description,
                 is_active   = :is_active
-            WHERE id = :id
+            WHERE id        = :id
               AND tenant_id = :tenant_id
         ");
 
         $stmt->execute([
-            ':name'       => $name,
-            ':description'=> $description,
-            ':is_active'  => $isActive,
-            ':id'         => $id,
-            ':tenant_id'  => $tenantId
+            ':name'        => $name,
+            ':description' => $description,
+            ':is_active'   => $isActive,
+            ':id'          => $id,
+            ':tenant_id'   => $tenantId,
         ]);
 
-        header('Location: /settings/workflows');
-        exit;
+        return $this->redirect('/settings/workflows');
     }
 
     /* =========================================================
@@ -194,18 +187,14 @@ class WorkflowController extends Controller
             SELECT ws.*, r.name AS role_name
             FROM workflow_steps ws
             JOIN roles r
-              ON r.id = ws.role_id
-             AND r.tenant_id = ws.tenant_id
+              ON r.id         = ws.role_id
+             AND r.tenant_id  = ws.tenant_id
             WHERE ws.workflow_id = :workflow_id
-              AND ws.tenant_id = :tenant_id
+              AND ws.tenant_id   = :tenant_id
             ORDER BY ws.step_order ASC
         ");
 
-        $stmt->execute([
-            ':workflow_id' => $id,
-            ':tenant_id'   => $tenantId
-        ]);
-
+        $stmt->execute([':workflow_id' => $id, ':tenant_id' => $tenantId]);
         $steps = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $roleStmt = $this->db->prepare("
@@ -218,12 +207,12 @@ class WorkflowController extends Controller
         $roleStmt->execute([':tenant_id' => $tenantId]);
         $roles = $roleStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        return View::render('Settings::Workflows/steps', [
+        return $this->view('Settings::Workflows/steps', [
             'title'    => 'Workflow Steps',
             'workflow' => $workflow,
             'steps'    => $steps,
-            'roles'    => $roles
-        ], 'app');
+            'roles'    => $roles,
+        ]);
     }
 
     public function storeStep(Request $request, int $id)
@@ -232,31 +221,29 @@ class WorkflowController extends Controller
         $this->findOrFail($tenantId, $id);
 
         $stepOrder = (int) $request->input('step_order');
-        $stepName  = trim($request->input('step_name'));
+        $stepName  = trim($request->input('step_name') ?? '');
         $roleId    = (int) $request->input('role_id');
 
         if ($stepOrder <= 0 || $stepName === '' || $roleId <= 0) {
             Response::abort(422, 'All step fields are required.');
         }
 
-        // Validate role ownership
+        // Validate role belongs to this tenant
         $roleStmt = $this->db->prepare("
             SELECT id
             FROM roles
-            WHERE id = :id
+            WHERE id        = :id
               AND tenant_id = :tenant_id
             LIMIT 1
         ");
 
-        $roleStmt->execute([
-            ':id'        => $roleId,
-            ':tenant_id' => $tenantId
-        ]);
+        $roleStmt->execute([':id' => $roleId, ':tenant_id' => $tenantId]);
 
-        if (!$roleStmt->fetch()) {
+        if (! $roleStmt->fetch()) {
             Response::abort(403, 'Invalid role for this tenant.');
         }
 
+        // FIX: schema — workflow_steps has no created_at column; removed from INSERT
         $stmt = $this->db->prepare("
             INSERT INTO workflow_steps
                 (tenant_id, workflow_id, step_order, name, role_id)
@@ -265,19 +252,18 @@ class WorkflowController extends Controller
         ");
 
         $stmt->execute([
-            ':tenant_id'  => $tenantId,
-            ':workflow_id'=> $id,
-            ':step_order' => $stepOrder,
-            ':name'       => $stepName,
-            ':role_id'    => $roleId
+            ':tenant_id'   => $tenantId,
+            ':workflow_id' => $id,
+            ':step_order'  => $stepOrder,
+            ':name'        => $stepName,
+            ':role_id'     => $roleId,
         ]);
 
-        header("Location: /settings/workflows/{$id}/steps");
-        exit;
+        return $this->redirect("/settings/workflows/{$id}/steps");
     }
 
     /* =========================================================
-     * ASSIGN WORKFLOW TO GATEPASS TYPE (PIVOT TABLE)
+     * ASSIGN WORKFLOW TO GATEPASS TYPE
      * ========================================================= */
 
     public function assign(Request $request, int $id)
@@ -294,16 +280,16 @@ class WorkflowController extends Controller
 
         $stmt->execute([':tenant_id' => $tenantId]);
 
-        return View::render('Settings::Workflows/assign', [
+        return $this->view('Settings::Workflows/assign', [
             'title'         => 'Assign Workflow',
             'workflow'      => $workflow,
-            'gatepassTypes' => $stmt->fetchAll(PDO::FETCH_ASSOC)
-        ], 'app');
+            'gatepassTypes' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+        ]);
     }
 
     public function storeAssignment(Request $request, int $id)
     {
-        $tenantId = $this->tenantId();
+        $tenantId       = $this->tenantId();
         $this->findOrFail($tenantId, $id);
 
         $gatepassTypeId = (int) $request->input('gatepass_type_id');
@@ -312,25 +298,22 @@ class WorkflowController extends Controller
             Response::abort(422, 'Gatepass type is required.');
         }
 
-        // Validate type ownership
+        // Validate type belongs to this tenant
         $typeStmt = $this->db->prepare("
             SELECT id
             FROM gatepass_types
-            WHERE id = :id
+            WHERE id        = :id
               AND tenant_id = :tenant_id
             LIMIT 1
         ");
 
-        $typeStmt->execute([
-            ':id'        => $gatepassTypeId,
-            ':tenant_id' => $tenantId
-        ]);
+        $typeStmt->execute([':id' => $gatepassTypeId, ':tenant_id' => $tenantId]);
 
-        if (!$typeStmt->fetch()) {
+        if (! $typeStmt->fetch()) {
             Response::abort(403, 'Invalid gatepass type.');
         }
 
-        // Insert into pivot (safe due to UNIQUE constraint)
+        // INSERT IGNORE is safe — schema has UNIQUE KEY uniq_workflow_type
         $stmt = $this->db->prepare("
             INSERT IGNORE INTO workflow_gatepass_type
                 (tenant_id, workflow_id, gatepass_type_id, created_at)
@@ -339,12 +322,11 @@ class WorkflowController extends Controller
         ");
 
         $stmt->execute([
-            ':tenant_id'       => $tenantId,
-            ':workflow_id'     => $id,
-            ':gatepass_type_id'=> $gatepassTypeId
+            ':tenant_id'        => $tenantId,
+            ':workflow_id'      => $id,
+            ':gatepass_type_id' => $gatepassTypeId,
         ]);
 
-        header('Location: /settings/workflows');
-        exit;
+        return $this->redirect('/settings/workflows');
     }
 }

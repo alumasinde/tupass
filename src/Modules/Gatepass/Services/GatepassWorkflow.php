@@ -4,57 +4,75 @@ namespace App\Modules\Gatepass\Services;
 
 use RuntimeException;
 
+
 class GatepassWorkflow
 {
-    public static function resolve(array $g): array
+    /**
+     * Evaluate which actions are physically eligible based on the gatepass's
+     * current status, timestamps, and returnability flag.
+     *
+     * Does NOT consider type-level allowed_actions — that is GatepassTypeService's job.
+     *
+     * @param  array $g  Gatepass row. Required keys: status_code.
+     *                   Optional keys: actual_in, actual_out, is_returnable.
+     * @return array{checkin_eligible: bool, checkout_eligible: bool}
+     *
+     * @throws RuntimeException if status_code is missing.
+     */
+    public static function eligibility(array $g): array
     {
-        if (empty($g['type_code']) || empty($g['status_code'])) {
-            throw new RuntimeException('Invalid gatepass state: missing workflow fields.');
+        if (empty($g['status_code'])) {
+            throw new RuntimeException('Invalid gatepass state: missing status_code.');
         }
 
-        $type       = strtoupper($g['type_code']);
         $status     = strtoupper($g['status_code']);
         $returnable = (int)($g['is_returnable'] ?? 0) === 1;
 
-        $actions = [
-            'can_checkin'  => false,
-            'can_checkout' => false,
+        return [
+            'checkin_eligible'  => self::isCheckinEligible($status, $returnable, $g),
+            'checkout_eligible' => self::isCheckoutEligible($status, $g),
         ];
+    }
 
-        switch ($type) {
 
-            case 'OUT':
-
-                if ($status === 'APPROVED' && empty($g['actual_out'])) {
-                    $actions['can_checkout'] = true;
-                }
-
-                if (
-                    $status === 'CHECKED_OUT' &&
-                    $returnable &&
-                    empty($g['actual_in'])
-                ) {
-                    $actions['can_checkin'] = true;
-                }
-
-                break;
-
-            case 'IN':
-
-                if ($status === 'APPROVED' && empty($g['actual_in'])) {
-                    $actions['can_checkin'] = true;
-                }
-
-                if ($status === 'CHECKED_IN' && empty($g['actual_out'])) {
-                    $actions['can_checkout'] = true;
-                }
-
-                break;
-
-            default:
-                throw new RuntimeException("Unknown gatepass type: {$type}");
+    private static function isCheckinEligible(string $status, bool $returnable, array $g): bool
+    {
+        // Already checked in — nothing to do
+        if (!empty($g['actual_in'])) {
+            return false;
         }
 
-        return $actions;
+        // Returnable gatepass that went out and is now returning
+        if ($status === 'CHECKED_OUT' && $returnable) {
+            return true;
+        }
+
+        // General approved state — gatepass is cleared to enter
+        if ($status === 'APPROVED') {
+            return true;
+        }
+
+        return false;
+    }
+
+
+    private static function isCheckoutEligible(string $status, array $g): bool
+    {
+        // Already checked out — nothing to do
+        if (!empty($g['actual_out'])) {
+            return false;
+        }
+
+        // Cleared to leave
+        if ($status === 'APPROVED') {
+            return true;
+        }
+
+        // Has checked in and is now departing
+        if ($status === 'CHECKED_IN') {
+            return true;
+        }
+
+        return false;
     }
 }

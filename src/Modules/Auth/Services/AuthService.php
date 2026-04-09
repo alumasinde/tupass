@@ -11,12 +11,17 @@ use RuntimeException;
 class AuthService
 {
     private UserRepository $users;
+    
+    private TenantRepository $tenants;
 
-    public function __construct(?UserRepository $users = null)
-    {
-        // Allow dependency injection (testable)
-        $this->users = $users ?? new UserRepository();
-    }
+public function __construct(
+    ?UserRepository $users = null,
+    ?TenantRepository $tenants = null
+) {
+    $this->users = $users ?? new UserRepository();
+    $this->tenants = $tenants ?? new TenantRepository();
+}
+
 
     /*
     |--------------------------------------------------------------------------
@@ -59,14 +64,30 @@ class AuthService
             'tenant_code'   => $user['tenant_code'],
             'email'         => $user['email'],
             'first_name'    => $user['first_name'],
-            'last_name'=> $user['last_name'],
+            'last_name'     => $user['last_name'],
             'role'          => $user['role'],
             'tenant_name'   => $user['tenant_name'],
+            'tenant_logo'   => $user['tenant_logo'],
         ];
 
         return true;
     }
 
+public function getTenantContext(int $id): array
+{
+    $tenant = $this->tenants->findTenantLogo($id);
+
+    if (!$tenant) {
+        throw new RuntimeException("Tenant not found");
+    }
+
+    // If logo is stored as BLOB
+    if (!empty($tenant['tenant_logo'])) {
+        $tenant['tenant_logo'] = base64_encode($tenant['tenant_logo']);
+    }
+
+    return $tenant;
+}
     /*
     |--------------------------------------------------------------------------
     | LOGOUT
@@ -159,12 +180,10 @@ class AuthService
 
     private function resolveTenantId(): int
 {
-    $host = $_SERVER['HTTP_HOST'];
-
+    $host = $_SERVER['HTTP_HOST'] ?? '';
     $subdomain = explode('.', $host)[0];
 
-    // Lookup tenant by subdomain
-    $tenant = (new TenantRepository())->findActiveByCode($subdomain);
+    $tenant = $this->tenants->findActiveByCode($subdomain);
 
     if (!$tenant) {
         throw new RuntimeException('Invalid tenant.');

@@ -14,6 +14,12 @@
         <p>Manage system users and access.</p>
     </a>
 
+        <a href="/settings/gatepass-types" class="report-card">
+        <i class="fa-solid fa-lock"></i>
+        <h3>Gatepass Type Config</h3>
+        <p>Configure Gatepass Types.</p>
+    </a>
+
     <a href="/settings/company" class="report-card">
         <i class="fa-solid fa-building"></i>
         <h3>Company Info</h3>

@@ -2,20 +2,30 @@
 
 namespace App\Modules\Settings\Controllers;
 
+use App\Core\Auth;
+use App\Core\Controller;
 use App\Core\Request;
-use App\Core\View;
+use App\Core\Response;
 use App\Modules\Settings\Services\TenantSettingService;
 
-class GatepassSettingController
+class GatepassSettingController extends Controller
 {
+    public function __construct()
+    {
+        // FIX: Guard added — was missing entirely
+        if (! Auth::check()) {
+            Response::redirect('/login');
+        }
+    }
+
     /**
      * Show numbering settings page
      */
     public function index()
     {
-        $settings = new TenantSettingService();
+        $settingsService = new TenantSettingService();
 
-        $config = $settings->get('gatepass_numbering', [
+        $defaults = [
             'prefix'        => 'GP',
             'include_year'  => true,
             'include_month' => false,
@@ -23,12 +33,15 @@ class GatepassSettingController
             'reset_yearly'  => true,
             'current_year'  => date('Y'),
             'sequence'      => 1,
-        ]);
+        ];
 
-        return View::render('Settings::gatepass-numbering', [
+        $saved  = $settingsService->get('gatepass_numbering') ?? [];
+        $config = array_merge($defaults, $saved);
+
+        return $this->view('Settings::gatepass-numbering', [
             'title'  => 'Gatepass Numbering Settings',
-            'config' => $config
-        ], 'app');
+            'config' => $config,
+        ]);
     }
 
     /**
@@ -36,21 +49,21 @@ class GatepassSettingController
      */
     public function update(Request $request)
     {
-        $settings = new TenantSettingService();
+        $settingsService = new TenantSettingService();
 
         $config = [
-            'prefix'        => trim($request->input('prefix') ?? 'GP'),
-            'include_year'  => $request->input('include_year') ? true : false,
-            'include_month' => $request->input('include_month') ? true : false,
-            'padding'       => max(1, (int)($request->input('padding') ?? 4)),
-            'reset_yearly'  => $request->input('reset_yearly') ? true : false,
+            'prefix'        => trim($request->input('prefix') ?: 'GP'),
+            'include_year'  => (bool) $request->input('include_year'),
+            'include_month' => (bool) $request->input('include_month'),
+            'padding'       => max(1, (int) ($request->input('padding') ?: 4)),
+            'reset_yearly'  => (bool) $request->input('reset_yearly'),
             'current_year'  => date('Y'),
-            'sequence'      => max(1, (int)($request->input('sequence') ?? 1)),
+            'sequence'      => max(1, (int) ($request->input('sequence') ?: 1)),
         ];
 
-        $settings->set('gatepass_numbering', $config);
+        $settingsService->set('gatepass_numbering', $config);
 
-        header("Location: /settings/gatepass-numbering");
-        exit;
+        // FIX: Use Response::redirect() instead of raw header() + exit
+        return $this->redirect('/settings/gatepass-numbering');
     }
 }

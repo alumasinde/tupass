@@ -45,6 +45,7 @@ class UserRepository
     u.is_active,
     t.code AS tenant_code,
     t.name AS tenant_name,
+    t.logo AS tenant_logo,
     r.id AS role_id,
     r.name AS role
 FROM users u

@@ -157,92 +157,92 @@ class GatepassService
     */
     public function getAvailableActions(array $gatepass): array
     {
-        return GatepassWorkflow::resolve($gatepass);
+$eligibility = GatepassWorkflow::eligibility($gatepass);
+
+return [
+    'can_checkin'  => $eligibility['checkin_eligible'],
+    'can_checkout' => $eligibility['checkout_eligible'],
+];    }
+
+   public function checkIn(int $tenantId, int $gatepassId, int $userId): bool
+{
+    $gatepass = $this->repo->findById($tenantId, $gatepassId);
+
+    if (!$gatepass) {
+        throw new \Exception('Gatepass not found.');
     }
 
-    public function checkIn(int $tenantId, int $gatepassId, int $userId): bool
-    {
-        $gatepass = $this->repo->findById($tenantId, $gatepassId);
+    $actions = $this->getAvailableActions($gatepass);
 
-        if (!$gatepass) {
-            throw new \Exception('Gatepass not found.');
-        }
+    if (!$actions['can_checkin']) {
+        throw new \Exception('Check-in not allowed in current state.');
+    }
 
-        // Resolve workflow rules
-        $actions = GatepassWorkflow::resolve($gatepass);
+    if (!empty($gatepass['actual_in'])) {
+        throw new \Exception('Gatepass already checked in.');
+    }
 
-        if (!$actions['can_checkin']) {
-            throw new \Exception('Check-in not allowed in current state.');
-        }
+    $timestamp = date('Y-m-d H:i:s');
 
-        // Prevent double check-in
-        if (!empty($gatepass['actual_in'])) {
-            throw new \Exception('Gatepass already checked in.');
-        }
+    $result = $this->repo->checkIn(
+        $tenantId,
+        $gatepassId,
+        $userId,
+        $timestamp
+    );
 
-        $timestamp = date('Y-m-d H:i:s');
+    if (!$result) {
+        throw new \Exception('Check-in failed.');
+    }
 
-        $result = $this->repo->checkIn(
-            $tenantId,
-            $gatepassId,
-            $userId,
-            $timestamp
-        );
+    Audit::log(
+        'gatepass.checked_in',
+        'gatepass',
+        $gatepassId,
+        ['timestamp' => $timestamp]
+    );
 
-        if (!$result) {
-            throw new \Exception('Check-in failed.');
-        }
+    return $result;
+}
 
+public function checkOut(int $tenantId, int $gatepassId, int $userId): bool
+{
+    $gatepass = $this->repo->findById($tenantId, $gatepassId);
+
+    if (!$gatepass) {
+        throw new \Exception('Gatepass not found.');
+    }
+
+    $actions = $this->getAvailableActions($gatepass);
+
+    if (!$actions['can_checkout']) {
+        throw new \Exception('Checkout not allowed in current state.');
+    }
+
+    if (!empty($gatepass['actual_out'])) {
+        throw new \Exception('Gatepass already checked out.');
+    }
+
+    $timestamp = date('Y-m-d H:i:s');
+
+    $result = $this->repo->checkOut(
+        $tenantId,
+        $gatepassId,
+        $userId,
+        $timestamp
+    );
+
+    if ($result) {
         Audit::log(
-            'gatepass.checked_in',
+            'gatepass.checked_out',
             'gatepass',
             $gatepassId,
             ['timestamp' => $timestamp]
         );
-
-        return $result;
     }
 
-    public function checkOut(int $tenantId, int $gatepassId, int $userId): bool
-    {
-        $gatepass = $this->repo->findById($tenantId, $gatepassId);
-
-        if (!$gatepass) {
-            throw new \Exception('Gatepass not found.');
-        }
-
-        // Resolve workflow rules
-        $actions = GatepassWorkflow::resolve($gatepass);
-
-        if (!$actions['can_checkout']) {
-            throw new \Exception('Checkout not allowed in current state.');
-        }
-
-        // Prevent double checkout
-        if (!empty($gatepass['actual_out'])) {
-            throw new \Exception('Gatepass already checked out.');
-        }
-
-        $timestamp = date('Y-m-d H:i:s');
-
-        $result = $this->repo->checkOut(
-            $tenantId,
-            $gatepassId,
-            $userId,
-            $timestamp
-        );
-
-        if ($result) {
-            Audit::log(
-                'gatepass.checked_out',
-                'gatepass',
-                $gatepassId,
-                ['timestamp' => $timestamp]
-            );
-        }
-
-        return $result;
-    }
+    return $result;
+}
 
     private function getUserDepartment(int $tenantId, int $userId): int
     {
@@ -391,69 +391,87 @@ class GatepassService
         );
     }
 
-    private function generateGatepassNumber(int $tenantId): string
-    {
-        // Use the shared $this->db so this runs inside the same transaction
-        $stmt = $this->db->prepare("
-            SELECT setting_value
-            FROM tenant_settings
-            WHERE tenant_id  = ?
-              AND setting_key = 'gatepass_numbering'
-            FOR UPDATE
-        ");
+private function generateGatepassNumber(int $tenantId): string
+{
+    $stmt = $this->db->prepare("
+        SELECT config_json
+        FROM tenant_settings
+        WHERE tenant_id = ?
+          AND setting_key = 'gatepass_numbering'
+        FOR UPDATE
+    ");
 
-        $stmt->execute([$tenantId]);
-        $row = $stmt->fetch();
+    $stmt->execute([$tenantId]);
+    $row = $stmt->fetch();
 
-        if (!$row) {
-            throw new \Exception('Gatepass numbering not configured.');
-        }
-
-        $config = json_decode($row['setting_value'], true);
-
-        $year = date('Y');
-        $month = date('m');
-
-        if (!empty($config['reset_yearly']) && $config['current_year'] != $year) {
-            $config['sequence'] = 1;
-            $config['current_year'] = $year;
-        }
-
-        $sequence = $config['sequence'];
-
-        $parts = [];
-
-        if (!empty($config['prefix']))
-            $parts[] = $config['prefix'];
-        if (!empty($config['include_year']))
-            $parts[] = $year;
-        if (!empty($config['include_month']))
-            $parts[] = $month;
-
-        $parts[] = str_pad(
-            $sequence,
-            $config['padding'] ?? 4,
-            '0',
-            STR_PAD_LEFT
-        );
-
-        $config['sequence']++;
-
-        $update = $this->db->prepare("
-            UPDATE tenant_settings
-            SET setting_value = ?
-            WHERE tenant_id  = ?
-              AND setting_key = 'gatepass_numbering'
-        ");
-
-        $update->execute([
-            json_encode($config),
-            $tenantId,
-        ]);
-
-        return implode('-', $parts);
+    if (!$row) {
+        throw new \Exception('Gatepass numbering not configured.');
     }
 
+    $config = json_decode($row['config_json'], true) ?? [];
+
+    // 🔒 Normalize config (CRITICAL)
+    $config = array_merge([
+        'prefix'        => 'GP',
+        'include_year'  => true,
+        'include_month' => false,
+        'padding'       => 4,
+        'reset_yearly'  => true,
+        'current_year'  => date('Y'),
+        'sequence'      => 1,
+    ], $config);
+
+    $year  = date('Y');
+    $month = date('m');
+
+    // Reset yearly
+    if ($config['reset_yearly'] && $config['current_year'] != $year) {
+        $config['sequence'] = 1;
+        $config['current_year'] = $year;
+    }
+
+    $sequence = $config['sequence'];
+
+    // Build number
+    $parts = [];
+
+    if (!empty($config['prefix'])) {
+        $parts[] = $config['prefix'];
+    }
+
+    if (!empty($config['include_year'])) {
+        $parts[] = $year;
+    }
+
+    if (!empty($config['include_month'])) {
+        $parts[] = $month;
+    }
+
+    $parts[] = str_pad(
+        $sequence,
+        (int)$config['padding'],
+        '0',
+        STR_PAD_LEFT
+    );
+
+    // Increment sequence
+    $config['sequence']++;
+
+    // Save back to DB
+    $update = $this->db->prepare("
+        UPDATE tenant_settings
+        SET config_json = ?
+        WHERE tenant_id = ?
+          AND setting_key = 'gatepass_numbering'
+    ");
+
+    $update->execute([
+        json_encode($config),
+        $tenantId,
+    ]);
+
+    return implode('-', $parts);
+}
 
     //Delete gatepass and its items
     public function delete(int $tenantId, int $id): bool
